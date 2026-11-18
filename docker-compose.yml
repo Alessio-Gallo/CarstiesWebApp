@@ -18,6 +18,19 @@
     volumes:
       - meilisearch_data:/meili_data
 
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    container_name: shop-rabbitmq
+    ports:
+      - "5672:5672"   # service bus port
+      - "15672:15672" # web interface port
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
 volumes:
   postgres_data:
   meilisearch_data:
+  rabbitmq_data:

@@ -1,8 +1,13 @@
+using Mapster;
 using Meilisearch;
 using SearchService.Data;
 using SearchService.Endpoints;
 using SearchService.Services;
+using Wolverine;
+using Wolverine.RabbitMQ;
 
+TypeAdapterConfig.GlobalSettings.Scan(typeof(Program).Assembly);
+    
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -27,6 +32,27 @@ builder.Services.AddHttpClient<AuctionSvcHttpClient>()
             return default;
         };
     });
+
+builder.Host.UseWolverine(opts =>
+{
+    opts.UseRabbitMq(rabbit =>
+        {
+            rabbit.HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
+            rabbit.UserName = builder.Configuration["RabbitMQ:Username"] ?? "guest";
+            rabbit.Password = builder.Configuration["RabbitMQ:Password"] ?? "guest";
+        })
+        .DeclareExchange("auction-created", ex => ex.ExchangeType = ExchangeType.Fanout)
+        .DeclareExchange("auction-updated", ex => ex.ExchangeType = ExchangeType.Fanout)
+        .DeclareExchange("auction-deleted", ex => ex.ExchangeType = ExchangeType.Fanout)
+        .BindExchange("auction-created").ToQueue("search-auction-created")
+        .BindExchange("auction-updated").ToQueue("search-auction-updated")
+        .BindExchange("auction-deleted").ToQueue("search-auction-deleted")
+        .AutoProvision();
+    
+    opts.ListenToRabbitQueue("search-auction-created");
+    opts.ListenToRabbitQueue("search-auction-updated");
+    opts.ListenToRabbitQueue("search-auction-deleted");
+});
 
 var app = builder.Build();
 
